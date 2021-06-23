@@ -42,63 +42,75 @@ def run():
     # fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,2,1,0]
     fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,0]
     # log_format = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
-    log_format = [1,1,1,1,1,1,1,0]
-    # lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
-    # lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    # log_format = [1,1,1,1,1,1,1,0]
+    log_format = [1,1,1,0]
+    lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
     # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
-    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(log_format), room=0, ch_wise=True))
-    # lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
-    # lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
+    lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(log_format), room=0, ch_wise=True))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(3), room=0, ch_wise=True))
+    lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
+    lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
     lp.set_scale_fluctuate(False)
     lp.set_hysteresis_update(False)
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
     device = torch.device("cuda")
-    model = ResNet18().to(device)
-
-    # bn_param = []
-    # base_param = []
-    # for m in model.modules():
-    #     if isinstance(m, nn.BatchNorm2d):
-    #         bn_param += list(m.parameters())
-    # base_param = list(set(model.parameters()) - set(bn_param))
+    model = ResNet18(100).to(device)
 
     bn_param = []
-    firstlast_param = []
     base_param = []
-    set_first_conv = False
+    firstlast_param = []
     for m in model.modules():
-        if isinstance(m, nn.BatchNorm2d):# or isinstance(m, nn.Conv2d):
+        if isinstance(m, nn.BatchNorm2d):
             bn_param += list(m.parameters())
-        elif isinstance(m, nn.Linear):
-            firstlast_param += list(m.parameters())
-        elif isinstance(m, nn.Conv2d):
-            if set_first_conv:
-                base_param += list(m.parameters())
-            else:
-                firstlast_param += list(m.parameters())
-                set_first_conv = True
+    base_param = list(set(model.parameters()) - set(bn_param))
+
+    # bn_param = []
+    # firstlast_param = []
+    # base_param = []
+    # set_first_conv = False
+    # for m in model.modules():
+    #     if isinstance(m, nn.BatchNorm2d):# or isinstance(m, nn.Conv2d):
+    #         bn_param += list(m.parameters())
+    #     elif isinstance(m, nn.Linear):
+    #         firstlast_param += list(m.parameters())
+    #     elif isinstance(m, nn.Conv2d):
+    #         if set_first_conv:
+    #             base_param += list(m.parameters())
+    #         else:
+    #             firstlast_param += list(m.parameters())
+    #             set_first_conv = True
 
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer_base = lp.optim.SGD(base_param, lr=0.1, momentum=0.9, weight_decay=5e-4)
-    optimizer_fl = lp.optim.SGD(firstlast_param, lr=0.05, momentum=0.9, weight_decay=4e-5)
-    # optimizer_fl = lp.optim.SGD(firstlast_param, lr=0.05, momentum=0.9, weight_decay=4e-5, quant=lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
+    # optimizer_fl = lp.optim.SGD(firstlast_param, lr=0.1, momentum=0.9, weight_decay=4e-5)
+    # optimizer_fl = lp.optim.SGD(firstlast_param, lr=0.1, momentum=0.9, weight_decay=4e-5, quant=lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
     optimizer_bn = lp.optim.SGD(bn_param, lr=0.1, momentum=0.9, weight_decay=5e-4, weight_quantize=False)
 
     lr_epoch = [60, 120, 160]
     scheduler_base = optim.lr_scheduler.MultiStepLR(optimizer_base, milestones=lr_epoch, gamma=0.2)
-    scheduler_fl = optim.lr_scheduler.MultiStepLR(optimizer_fl, milestones=lr_epoch, gamma=0.2)
+    # scheduler_fl = optim.lr_scheduler.MultiStepLR(optimizer_fl, milestones=lr_epoch, gamma=0.2)
     scheduler_bn = optim.lr_scheduler.MultiStepLR(optimizer_bn, milestones=lr_epoch, gamma=0.2)
 
-    folder_name = 'cifar100_resnet18_baseline'
+    # folder_name = 'cifar100_resnet18_baseline'
     # folder_name = 'cifar100_resnet18_activ_FP152'
     # folder_name = 'cifar100_resnet18_activ_FP143'
     # folder_name = 'cifar100_resnet18_activ_LFP8'
     # folder_name = 'cifar100_resnet18_train_LFP8_w_hysteresis'
     # folder_name = 'cifar100_resnet18_train_LFP8_wo_hysteresis'
     # folder_name = 'cifar100_resnet18_train_FP4_w_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_FP4_wo_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT4_w_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT4_wo_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT6_w_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT6_wo_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT3_w_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_INT3_wo_hysteresis'
+    # folder_name = 'cifar100_resnet18_train_FP3_w_hysteresis'
+    folder_name = 'cifar100_resnet18_train_FP3_wo_hysteresis'
 
     def set_scale():
         print('calculating initial scale...')
@@ -128,7 +140,7 @@ def run():
         correct_data = [0]*5
 
         optimizer_base.zero_grad()
-        optimizer_fl.zero_grad()
+        # optimizer_fl.zero_grad()
         optimizer_bn.zero_grad()
 
         for batch_idx, (inputs, targets) in enumerate(trainloader):
@@ -140,10 +152,10 @@ def run():
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer_base.step()
-            optimizer_fl.step()
+            # optimizer_fl.step()
             optimizer_bn.step()
             optimizer_base.zero_grad()
-            optimizer_fl.zero_grad()
+            # optimizer_fl.zero_grad()
             optimizer_bn.zero_grad()
 
             train_loss += loss.item()
@@ -194,10 +206,10 @@ def run():
         state = {
             'net':model.state_dict(),
             'optimizer_base': optimizer_base.state_dict(),
-            'optimizer_fl': optimizer_fl.state_dict(),
+            # 'optimizer_fl': optimizer_fl.state_dict(),
             'optimizer_bn': optimizer_bn.state_dict(),
             'scheduler_base': scheduler_base.state_dict(),
-            'scheduler_fl': scheduler_fl.state_dict(),
+            # 'scheduler_fl': scheduler_fl.state_dict(),
             'scheduler_bn': scheduler_bn.state_dict(),
             'acc':acc,
             'epoch':epoch,
@@ -222,7 +234,7 @@ def run():
         train(epoch)
         test(epoch)
         scheduler_base.step()
-        scheduler_fl.step()
+        # scheduler_fl.step()
         scheduler_bn.step()
 
 if __name__ == "__main__":

@@ -60,13 +60,15 @@ def run():
     testset = torchvision.datasets.ImageFolder(root='../ImageNet/val', transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=16)
     
-    fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,2,1,0]
-    # fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,0]
+    # fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,2,1,0]
+    fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,0]
     # log_format = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
     log_format = [1,1,1,1,1,1,1,0]
     lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
     lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
-    lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(log_format), room=0, ch_wise=True))
+    lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(6), room=0, ch_wise=True))
     lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
     lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
     lp.set_scale_fluctuate(False)
@@ -95,29 +97,12 @@ def run():
     scheduler_base = optim.lr_scheduler.MultiStepLR(optimizer_base, milestones=lr_epoch, gamma=0.1)
     scheduler_bn = optim.lr_scheduler.MultiStepLR(optimizer_bn, milestones=lr_epoch, gamma=0.1)
 
-    # gpu8-1
-
-    # folder_name = 'resnet18'  #7
-    # folder_name = 'resnet18_paper'    #6
-    # folder_name = 'resnet18_paper_fluct'    #5
-    # folder_name = 'resnet18_paper_fluct_newformat'    #4
-    # folder_name = 'resnet18_paper_fluct_newformat_hysteresis'   #3
-
-    # gpu8-2
-
-    # folder_name = 'resnet18_log_wo_hysteresis'    #7
-    # folder_name = 'resnet18_log_w_hysteresis'   #6
-    # folder_name = 'resnet18_linear8_wo_hysteresis'   #5
-    # folder_name = 'resnet18_linear8_w_hysteresis'   #4
-    # folder_name = 'resnet18_log4_wo_hysteresis_re'   #5
-    # folder_name = 'resnet18_log4_w_hysteresis'   #4
-    # folder_name = 'resnet18_paper_newformat_hysteresis'   #3
-    # folder_name = 'resnet18_paper_newformat'   #5
-
-    # folder_name = 'resnet18_paper_batch_size_16'   #7
-    # folder_name = 'resnet18_paper_fluct_batch_size_16'   #6
-    # folder_name = 'resnet18_paper_fluct_hysteresis'   #5
-    folder_name = 'resnet18_paper_hysteresis'   #4
+    # folder_name = 'imagenet_resnet18_train_FP4_w_hysteresis'
+    # folder_name = 'imagenet_resnet18_train_FP4_wo_hysteresis'
+    # folder_name = 'imagenet_resnet18_train_INT4_w_hysteresis'
+    # folder_name = 'imagenet_resnet18_train_INT4_wo_hysteresis'
+    folder_name = 'imagenet_resnet18_train_INT6_w_hysteresis'
+    
 
     def accuracy(output, target, topk=(1,)):
         """Computes the precision@k for the specified values of k"""
