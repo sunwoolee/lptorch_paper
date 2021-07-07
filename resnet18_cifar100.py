@@ -110,7 +110,7 @@ def run():
     # folder_name = 'cifar100_resnet18_train_INT3_w_hysteresis'
     # folder_name = 'cifar100_resnet18_train_INT3_wo_hysteresis'
     # folder_name = 'cifar100_resnet18_train_FP3_w_hysteresis'
-    folder_name = 'cifar100_resnet18_train_FP3_wo_hysteresis'
+    folder_name = 'cifar100_resnet18_train_FP3_wo_hysteresis'   
 
     def set_scale():
         print('calculating initial scale...')

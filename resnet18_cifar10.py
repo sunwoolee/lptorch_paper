@@ -57,7 +57,7 @@ def run():
     # lp.set_hysteresis_update(False)
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     device = torch.device("cuda")
     model = ResNet18().to(device)

@@ -55,31 +55,32 @@ def run():
     '''
     #### data directory in server ####
     trainset = torchvision.datasets.ImageFolder(root='../ImageNet/train', transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=16)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=8)
 
     testset = torchvision.datasets.ImageFolder(root='../ImageNet/val', transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=16)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=8)
 
     # fp8_format = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,1,0]
     # fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,2,1,0]
     fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,0]
     # log_format = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
     log_format = [1,1,1,1,1,1,1,0]
-    # lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
-    # lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
-    lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
+    lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
     # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(log_format), room=0, ch_wise=True))
-    # lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(8), room=0, ch_wise=True))
-    # lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
-    # lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
+    lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(4), room=0, ch_wise=True))
+    lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
+    lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
     lp.set_scale_fluctuate(False)
     lp.set_hysteresis_update(False)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 
     device = torch.device("cuda")
-    model = resnet50().to(device)
+    model = resnet50()
     model.fc.qblock.scale2 = model.fc.qblock.scale2.squeeze()
+    model = torch.nn.DataParallel(model).to(device)
 
     bn_param = []
     base_param = []
@@ -101,13 +102,13 @@ def run():
     scheduler_base = optim.lr_scheduler.MultiStepLR(optimizer_base, milestones=lr_epoch, gamma=0.1)
     scheduler_bn = optim.lr_scheduler.MultiStepLR(optimizer_bn, milestones=lr_epoch, gamma=0.1)
 
-    folder_name = 'imagenet_resnet50_activ_LFP8'
+    # folder_name = 'imagenet_resnet50_activ_LFP8'
     # folder_name = 'imagenet_resnet50_activ_FP152'
     # folder_name = 'imagenet_resnet50_activ_FP143'
     # folder_name = 'imagenet_resnet50_train_FP4_w_hysteresis'
     # folder_name = 'imagenet_resnet50_train_FP4_wo_hysteresis'
     # folder_name = 'imagenet_resnet50_train_INT4_w_hysteresis'
-    # folder_name = 'imagenet_resnet50_train_INT4_wo_hysteresis'
+    folder_name = 'imagenet_resnet50_train_INT4_wo_hysteresis'
     # folder_name = 'imagenet_resnet50_train_INT6_w_hysteresis'
     # folder_name = 'imagenet_resnet50_train_INT6_wo_hysteresis'
     # folder_name = 'imagenet_resnet50_train_INT8_w_hysteresis'

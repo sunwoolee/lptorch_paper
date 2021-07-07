@@ -12,7 +12,8 @@ from torch.autograd import Variable
 
 import torchvision
 import torchvision.transforms as transforms
-from model.resnet import resnet18
+from model.mobilenet import mobilenet_v2
+from model.mobilenet_merge import mobilenet_v2 as mobilenet_v2_merge
 
 import lptorch as lp
 from utils import *
@@ -21,6 +22,7 @@ from utils import *
 best_acc = 0
 def run():
     global best_acc
+    global optimizer_bn, optimizer_fl, optimizer_base
     # Random seed
     manualSeed = random.randint(1, 10000)
     random.seed(manualSeed)
@@ -60,60 +62,89 @@ def run():
     testset = torchvision.datasets.ImageFolder(root='../ImageNet/val', transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=8)
     
-    # fp8_format = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,1,0]
     # fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,3,2,1,0]
     fp8_format = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,0]
     # log_format = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
     log_format = [1,1,1,1,1,1,1,0]
     lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
     lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
-    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=0, ch_wise=False))
     # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(log_format), room=0, ch_wise=True))
-    lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(8), room=0, ch_wise=True))
+    lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(6), room=0, ch_wise=True))
     lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
     lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
     lp.set_scale_fluctuate(False)
-    lp.set_hysteresis_update(False)
+    # lp.set_hysteresis_update(False)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     device = torch.device("cuda")
-    model = resnet18().to(device)
-    model.fc.qblock.scale2 = model.fc.qblock.scale2.squeeze()
+    model = mobilenet_v2().to(device)
+    # model = mobilenet_v2_merge().to(device)
+    model.classifier[1].qblock.scale2 = model.classifier[1].qblock.scale2.squeeze()
+
+    # folder_name = 'imagenet_mobilenetv2_activ_FP152'
+    # folder_name = 'imagenet_mobilenetv2_activ_FP143'
+    # folder_name = 'imagenet_mobilenetv2_activ_LFP8'
+    # folder_name = 'imagenet_mobilenetv2_train_FP4_w_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_FP4_wo_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_INT4_w_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_INT4_wo_hysteresis'
+    folder_name = 'imagenet_mobilenetv2_train_INT6_w_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_INT6_wo_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_INT8_w_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_INT8_wo_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_LFP8_w_hysteresis_243_wo_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_LFP8_w_hysteresis_250_wo_hysteresis'
+    # folder_name = 'imagenet_mobilenetv2_train_LFP8_wo_hysteresis'
+    
+    # refolder_name = 'imagenet_mobilenetv2_train_LFP8_w_hysteresis'
 
     bn_param = []
     base_param = []
     for m in model.modules():
         if isinstance(m, nn.BatchNorm2d):
             bn_param += list(m.parameters())
-        elif isinstance(m, nn.Conv2d):
-            base_param += list(m.parameters())
         elif isinstance(m, nn.Linear):
             base_param += list(m.parameters())
-    # base_param = list(set(model.parameters()) - set(bn_param))
-
+        elif isinstance(m, nn.Conv2d):
+            base_param += list(m.parameters())
+            
     criterion = nn.CrossEntropyLoss().to(device)
-
-    optimizer_base = lp.optim.SGD(base_param, lr=0.1, momentum=0.9, weight_decay=1e-4)
-    optimizer_bn = lp.optim.SGD(bn_param, lr=0.1, momentum=0.9, weight_decay=1e-4, weight_quantize=False)
-
     
-    lr_epoch = [30, 60]
-    scheduler_base = optim.lr_scheduler.MultiStepLR(optimizer_base, milestones=lr_epoch, gamma=0.1)
-    scheduler_bn = optim.lr_scheduler.MultiStepLR(optimizer_bn, milestones=lr_epoch, gamma=0.1)
+    # 270 epoch cosine lr curve
+    optimizer_base = lp.optim.SGD(base_param, lr=0.05, momentum=0.9, weight_decay=4e-5)
+    optimizer_bn = lp.optim.SGD(bn_param, lr=0.05, momentum=0.9, weight_decay=4e-5, weight_quantize=False)
 
-    # folder_name = 'imagenet_resnet18_activ_FP152'
-    # folder_name = 'imagenet_resnet18_activ_FP143'
-    # folder_name = 'imagenet_resnet18_activ_LFP8'
-    # folder_name = 'imagenet_resnet18_train_FP4_w_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_FP4_wo_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_INT4_w_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_INT4_wo_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_INT6_w_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_INT6_wo_hysteresis'
-    # folder_name = 'imagenet_resnet18_train_INT8_w_hysteresis'
-    folder_name = 'imagenet_resnet18_train_INT8_wo_hysteresis'
+    scheduler_base = optim.lr_scheduler.CosineAnnealingLR(optimizer_base, T_max=270)
+    scheduler_bn = optim.lr_scheduler.CosineAnnealingLR(optimizer_bn, T_max=270)
     
+    # state = load_checkpoint(refolder_name, device, 250)
+    # lp.load_state_dict(model, state['net'])
+    # model.load_state_dict(state['net'])
+    # optimizer_base.load_state_dict(state['optimizer_base'])
+    # optimizer_bn.load_state_dict(state['optimizer_bn'])
+    # optimizer_base.scale_to_int()
+    # optimizer_bn.scale_to_int()
+    # for i in range(250):
+    #     scheduler_base.step()
+    #     scheduler_bn.step()
+    # best_acc = state['acc']
+    # start_epoch = state['epoch']+1
+
+    # idx = 0
+    # for m in model.modules():
+    #     if isinstance(m, lp.nn.ConvBn2d):
+    #         if idx < 46:
+    #             m.set_merge()
+    #             idx += 1
+    #         # m.merge_bn()
+    #         # m.set_qtrain()
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.linear_format(6), room=0, ch_wise=True))
+    
+    start_epoch = 0
+    best_acc = 0
+    end_epoch = 270
 
     def accuracy(output, target, topk=(1,)):
         """Computes the precision@k for the specified values of k"""
@@ -148,7 +179,7 @@ def run():
         
 
     def train(epoch, end_epoch):
-        print('\nEpoch: %d|%d \t LR: %.4f' % (epoch+1, end_epoch, scheduler_base.get_last_lr()[0]))
+        print('\nEpoch: %d|%d \t LR: %.10f' % (epoch+1, end_epoch, scheduler_base.get_last_lr()[0]))
         model.train()
 
         batch_time = AverageMeter()
@@ -243,20 +274,6 @@ def run():
         save_checkpoint(state, folder_name, epoch+1)
         if acc > best_acc:
             best_acc = acc
-
-    # state = load_checkpoint(folder_name, device, 28)
-    # model.load_state_dict(state['net'])
-    # optimizer.load_state_dict(state['optimizer'])
-    # scheduler.load_state_dict(state['scheduler'])
-    # for i in range(28):
-    #     scheduler_base.step()
-    #     scheduler_bn.step()
-    # best_acc = state['acc']
-    # start_epoch = state['epoch']+1
-
-    start_epoch = 0
-    best_acc = 0
-    end_epoch = 90
 
     set_scale()
     for epoch in range(start_epoch, end_epoch):
