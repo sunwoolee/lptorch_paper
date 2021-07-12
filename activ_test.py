@@ -219,44 +219,44 @@ def run():
         return torch.unsqueeze(torch.cat(result),0)
         
     cosine_value = []
-    # for batch_idx, (inputs, targets) in enumerate(trainloader):
-    #     if batch_idx == int(args.iter):
-    #         break
-    #     model.eval()
-    #     inputs, targets = inputs.to(device), targets.to(device)
-    #     for idx, form in enumerate(fp8_format):
-    #         # def savegrad(self, grad_input, grad_output):
-    #         #     if not os.path.isdir('activ_test'):
-    #         #         os.mkdir('activ_test')
-    #         #     current = os.getcwd()
-    #         #     path = os.path.join(current, 'activ_test', args.dataset+'_'+args.model)
-    #         #     if not os.path.isdir(path):
-    #         #         os.mkdir(path)
-    #         #     os.chdir(path)
-    #         #     np.save(format_label[idx]+'.npy', grad_output[0].cpu().numpy())
-    #         #     os.chdir(current)
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        if batch_idx == int(args.iter):
+            break
+        model.eval()
+        inputs, targets = inputs.to(device), targets.to(device)
+        for idx, form in enumerate(fp8_format):
+            # def savegrad(self, grad_input, grad_output):
+            #     if not os.path.isdir('activ_test'):
+            #         os.mkdir('activ_test')
+            #     current = os.getcwd()
+            #     path = os.path.join(current, 'activ_test', args.dataset+'_'+args.model)
+            #     if not os.path.isdir(path):
+            #         os.mkdir(path)
+            #     os.chdir(path)
+            #     np.save(format_label[idx]+'.npy', grad_output[0].cpu().numpy())
+            #     os.chdir(current)
 
-    #         # lp.set_error_quant(form)
-    #         # # lp.set_activ_quant(form)
-    #         # handle = first_module.register_backward_hook(savegrad)
-    #         # outputs = model(inputs)
-    #         # loss = criterion(outputs, targets)
-    #         # loss.backward()
-    #         # handle.remove()
-    #         model.zero_grad()
-    #         lp.set_error_quant(form)
-    #         outputs = model(inputs.clone())
-    #         loss = criterion(outputs, targets)
-    #         loss.backward()
-    #         if not os.path.isdir('activ_test'):
-    #             os.mkdir('activ_test')
-    #         current = os.getcwd()
-    #         path = os.path.join(current, 'activ_test', args.dataset+'_'+args.model)
-    #         if not os.path.isdir(path):
-    #             os.mkdir(path)
-    #         os.chdir(path)
-    #         np.save(format_label[idx]+'.npy', first_module.weight.grad.cpu().numpy())
-    #         os.chdir(current)
+            # lp.set_error_quant(form)
+            # # lp.set_activ_quant(form)
+            # handle = first_module.register_backward_hook(savegrad)
+            # outputs = model(inputs)
+            # loss = criterion(outputs, targets)
+            # loss.backward()
+            # handle.remove()
+            model.zero_grad()
+            lp.set_error_quant(form)
+            outputs = model(inputs.clone())
+            loss = criterion(outputs, targets)
+            loss.backward()
+            if not os.path.isdir('activ_test'):
+                os.mkdir('activ_test')
+            current = os.getcwd()
+            path = os.path.join(current, 'activ_test', args.dataset+'_'+args.model)
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            os.chdir(path)
+            np.save(format_label[idx]+'.npy', first_module.weight.grad.cpu().numpy())
+            os.chdir(current)
 
     result = []
     for label in format_label:
