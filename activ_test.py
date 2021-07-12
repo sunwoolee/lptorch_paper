@@ -28,7 +28,7 @@ def run():
     parser.add_argument('--model', default='resnet18', help='test target model')
     parser.add_argument('--dataset', default='cifar10', help='test target dataset')
     parser.add_argument('--iter', default=100, help='test target dataset')
-    parser.add_argument('--gpu', default='0', helf='gpu number')
+    parser.add_argument('--gpu', default='0', help='gpu number')
     args = parser.parse_args()
     
     device = torch.device('cuda:'+args.gpu)
