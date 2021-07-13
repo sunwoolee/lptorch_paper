@@ -153,7 +153,8 @@ class MobileNetV2(nn.Module):
         # building classifier
         self.classifier = nn.Sequential(
             qnn.NQLayer(nn.Dropout(0.2)),
-            qnn.QLayer(nn.Linear(self.last_channel, num_classes), qF.sub_max, dual=[False, True], last=True, tracking=[True, False]),
+            # qnn.QLayer(nn.Linear(self.last_channel, num_classes), qF.sub_max, dual=[False, True], last=True, tracking=[True, False]),
+            qnn.QLayer(nn.Linear(self.last_channel, num_classes), dual=[False, True], last=True, tracking=[True, False], quantize=[False, True]),
         )
 
         # weight initialization

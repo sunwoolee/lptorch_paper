@@ -172,8 +172,8 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = qnn.QLayer(nn.AdaptiveAvgPool2d((1, 1)))
         self.flatten = qnn.NQLayer(nn.Flatten())
-        self.fc = qnn.QLayer(nn.Linear(512 * block.expansion, num_classes), qF.sub_max, dual=[False, True], last=True, tracking=[True, False])
-        # self.fc = qnn.NQLayer(nn.Linear(512 * block.expansion, num_classes), last=True)
+        # self.fc = qnn.QLayer(nn.Linear(512 * block.expansion, num_classes), qF.sub_max, dual=[False, True], last=True, tracking=[True, False])
+        self.fc = qnn.QLayer(nn.Linear(512 * block.expansion, num_classes), dual=[False, True], last=True, tracking=[True, False], quantize=[False, True])
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
