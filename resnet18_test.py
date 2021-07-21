@@ -60,10 +60,14 @@ def run():
     testset = torchvision.datasets.ImageFolder(root='../ImageNet/val', transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=8)
     
+    fp8_format = [5,5,5,5,5,5,5,4,3,2,1,0]
     fp4_format = [1,1,1,1,1,1,1,0]
-    lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp4_format), room=1, stochastic=True))
-    lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp4_format), room=1, stochastic=True))
-    lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp4_format), room=0))
+    afp4_format = [2,2,2,2,2,2,2,1,0]
+    lp.set_activ_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    lp.set_error_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1, stochastic=True))
+    lp.set_kactiv_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=1))
+    lp.set_kerror_quant(lp.quant.quant(lp.quant.custom_fp_format(fp4_format), room=1, stochastic=True))
+    # lp.set_weight_quant(lp.quant.quant(lp.quant.custom_fp_format(fp4_format), room=0))
     # lp.set_grad_quant(lp.quant.quant(lp.quant.custom_fp_format(fp8_format), room=2))
     # lp.set_master_quant(lp.quant.quant(lp.quant.fp_format(exp_bit=6, man_bit=9), stochastic=True))
     # lp.set_hysteresis_update(False)
@@ -94,7 +98,7 @@ def run():
     scheduler_base = optim.lr_scheduler.MultiStepLR(optimizer_base, milestones=lr_epoch, gamma=0.1)
     scheduler_bn = optim.lr_scheduler.MultiStepLR(optimizer_bn, milestones=lr_epoch, gamma=0.1)
 
-    folder_name = 'imagenet_resnet18_train_FP4'
+    folder_name = 'imagenet_resnet18_error_FP4_subnormal_stochastic'
     
 
     def accuracy(output, target, topk=(1,)):
